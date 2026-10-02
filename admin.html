@@ -3,32 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Edit Sijj Soundboard</title>
+<title>Creator Studio · OnlySijj</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="deck">
-  <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
-  <div class="top">
-    <div class="brand"><h1>Pad Mapping</h1><small>Assign clips to buttons</small></div>
-    <div class="ctrl"><a class="btn-hw" href="index.html">← Board</a></div>
-  </div>
-  <div class="well">
+<div class="topbar"><div class="topbar-inner">
+  <a class="logo" href="./">Only<b>Sijj</b> <span style="font-weight:500;color:var(--muted);font-size:.9rem">Creator Studio</span></a>
+  <a class="pill ghost" href="index.html">← Back to profile</a>
+</div></div>
+<main>
+  <div class="studio">
+    <h2>Manage your posts</h2>
+    <p class="note">Upload a clip to each post and give it a caption. Changes go live for all fans once published.</p>
     <div class="toolbar">
-      <p class="note">Changes go live for everyone once published (saved to the GitHub repo).</p>
-      <button class="btn-hw" id="add">＋ Add pad</button>
-      <button class="btn-hw stop" id="publish" disabled>⬆ Publish</button>
+      <button class="pill ghost" id="add">＋ New post</button>
+      <button class="pill" id="publish" disabled>⬆ Publish</button>
     </div>
-    <div id="status" class="note" style="margin-bottom:12px"></div>
+    <div id="status"></div>
     <details class="auth"><summary>GitHub access (needed to publish)</summary>
-      <p class="note">Create a fine-grained token at github.com/settings/personal-access-tokens with access to this repo only and <b>Contents: read &amp; write</b>. It's stored only in this browser. Without it, nobody can change the board.</p>
+      <p class="note">Create a fine-grained token at github.com/settings/personal-access-tokens with access to this repo only and <b>Contents: read &amp; write</b>. It's stored only in this browser.</p>
       <input type="text" id="repo" placeholder="owner/repo">
       <input type="password" id="token" placeholder="github_pat_…" autocomplete="off">
-      <button class="btn-hw" id="save-auth">Save</button>
+      <button class="pill" id="save-auth">Save</button>
     </details>
     <div id="list"></div>
   </div>
-</div>
+</main>
 <script src="config.js"></script>
 <script>
 const WORKER = (window.SIJJ_WORKER || '').replace(/\/$/, '');
@@ -68,10 +68,10 @@ function render() {
       <div><input type="text" maxlength="30" placeholder="Button label">
         <div class="file"></div></div>
       <div class="actions">
-        <label class="btn-hw">Upload<input type="file" accept="audio/*" hidden></label>
-        <button class="btn-hw play">▶</button>
-        <button class="btn-hw clear">Clear</button>
-        <button class="btn-hw danger del">Delete</button>
+        <label class="pill ghost">Upload<input type="file" accept="audio/*" hidden></label>
+        <button class="pill ghost play">▶</button>
+        <button class="pill ghost clear">Clear</button>
+        <button class="pill danger del">Delete</button>
       </div>`;
     const input = row.querySelector('input[type=text]');
     input.value = slot.label;

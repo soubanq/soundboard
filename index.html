@@ -3,55 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sijj Soundboard</title>
+<title>OnlySijj</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="deck">
-  <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
-  <div class="top">
-    <div class="brand"><h1>Sijj Soundboard</h1><small>Pro Series · Maximum Sijj</small></div>
-    <div class="display"><div class="now" id="now">READY</div><div class="meter" id="meter"></div></div>
-    <div class="ctrl">
-      <button class="btn-hw stop" id="stop">■ Stop</button>
-      <a class="btn-hw" href="admin.html">⚙ Map</a>
+<div class="topbar"><div class="topbar-inner">
+  <a class="logo" href="./">Only<b>Sijj</b></a>
+  <button class="pill ghost" id="stop">🔇 Mute</button>
+  <a class="pill" href="admin.html">Creator Studio</a>
+</div></div>
+<main>
+  <div class="cover"><div class="live" id="live"><i></i><span id="now">OFFLINE</span></div></div>
+  <div class="profile">
+    <div class="avatar">S</div>
+    <h1>Sijj <span class="badge">✓</span></h1>
+    <div class="handle">@onlysijj · Last seen just now</div>
+    <p class="bio">Verified legend 🎙️ Exclusive, premium, 100% uncensored Sijj content. Tap a post to unlock. Please don't screenshot. 💙</p>
+    <div class="stats">
+      <div><b id="posts">0</b>Posts</div>
+      <div><b id="fans">69.4K</b>Fans</div>
+      <div><b id="likes">0</b>Likes</div>
+    </div>
+    <div class="sub">
+      <button class="pill" id="subscribe">Subscribe · £0.00 / month</button>
+      <div class="price">Subscription includes unlimited Sijj. Cancel anytime (you won't want to).</div>
     </div>
   </div>
-  <div class="well"><div id="grid" class="grid"></div></div>
-</div>
+  <div class="tabs"><span class="on">POSTS</span><span>MEDIA</span><span>TIPS</span></div>
+  <div id="grid" class="grid"></div>
+  <div class="footer">OnlySijj is a parody. Not affiliated with anything, least of all good taste.</div>
+</main>
 <script>
 const grid = document.getElementById('grid');
 const nowEl = document.getElementById('now');
-const meter = document.getElementById('meter');
+const liveEl = document.getElementById('live');
 const playing = new Set();
 const KEYS = '1234567890qwertyuiopasdfghjkl'.split('');
+const keymap = {};
+const PRICES = ['FREE', '£0.99', '£1.99', 'FREE', '£4.20', '£0.69', 'FREE'];
 
-for (let i = 0; i < 16; i++) meter.append(document.createElement('i'));
-const bars = [...meter.children];
-setInterval(() => {
-  const n = playing.size;
-  const level = n ? Math.min(16, Math.round(5 + Math.random() * 8 + n * 2)) : 0;
-  bars.forEach((b, i) => {
-    b.className = i < level ? 'on' + (i > 12 ? ' hot' : i > 9 ? ' warn' : '') : '';
-  });
-}, 70);
+const store = {
+  get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const likes = store.get('onlysijj-likes') || {};
+const total = () => Object.values(likes).reduce((a, b) => a + b, 0);
+const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n);
 
-function refreshDisplay(label) {
-  nowEl.textContent = playing.size ? '▶ ' + label.toUpperCase() : 'READY';
+function refreshLive(label) {
+  liveEl.classList.toggle('on', playing.size > 0);
+  nowEl.textContent = playing.size ? 'LIVE · ' + label.toUpperCase() : 'OFFLINE';
 }
+
+document.getElementById('subscribe').onclick = e => {
+  e.target.textContent = '✓ Subscribed · Thank you for your support';
+  e.target.classList.add('ghost');
+};
 
 (async () => {
   const slots = await fetch('clips.json', { cache: 'no-store' }).then(r => r.json()).then(j => j.slots).catch(() => []);
+  document.getElementById('posts').textContent = slots.filter(s => s.file).length;
+  document.getElementById('likes').textContent = fmt(total() + 1337);
   if (!slots.some(s => s.file)) {
-    grid.outerHTML = '<p class="empty">NO CLIPS LOADED — head to <a href="admin.html">MAP</a> to upload some.</p>';
+    grid.outerHTML = '<p class="empty">No posts yet. Visit <a href="admin.html">Creator Studio</a> to upload some content.</p>';
     return;
   }
   slots.forEach((slot, i) => {
     const b = document.createElement('button');
     b.className = 'pad c' + (i % 7);
-    b.innerHTML = '<span class="key"></span><span class="led"></span><span class="lbl"></span>';
+    b.innerHTML = '<span class="key"></span><span class="price"></span><span class="play">▶</span><span class="lbl"><span class="t"></span><span class="meta"><span class="hearts"></span></span></span>';
     b.querySelector('.key').textContent = (KEYS[i] || '').toUpperCase();
-    b.querySelector('.lbl').textContent = slot.label;
+    b.querySelector('.price').textContent = PRICES[i % PRICES.length] === 'FREE' ? 'FREE' : '🔓 ' + PRICES[i % PRICES.length];
+    b.querySelector('.t').textContent = slot.label;
+    const hearts = b.querySelector('.hearts');
+    const showHearts = () => { hearts.textContent = '♥ ' + fmt((likes[slot.id] || 0) + 100 + i * 37); };
+    showHearts();
     if (!slot.file) { b.disabled = true; }
     else {
       const url = slot.file;
@@ -60,24 +86,26 @@ function refreshDisplay(label) {
         const a = new Audio(url);
         playing.add(a);
         b.classList.add('playing');
-        refreshDisplay(slot.label);
+        refreshLive(slot.label);
+        likes[slot.id] = (likes[slot.id] || 0) + 1;
+        store.set('onlysijj-likes', likes);
+        showHearts();
+        document.getElementById('likes').textContent = fmt(total() + 1337);
         const done = () => {
           playing.delete(a);
           if (![...playing].some(x => x._pad === b)) b.classList.remove('playing');
-          refreshDisplay(slot.label);
+          refreshLive(slot.label);
         };
         a._pad = b; a._done = done;
         a.onended = a.onerror = done;
         a.play().catch(done);
       };
-      b._trigger = b.onclick;
     }
     grid.append(b);
     if (KEYS[i]) keymap[KEYS[i]] = b;
   });
 })();
 
-const keymap = {};
 addEventListener('keydown', e => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
   const b = keymap[e.key.toLowerCase()];
