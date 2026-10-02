@@ -29,7 +29,11 @@
     <div id="list"></div>
   </div>
 </div>
+<script src="config.js"></script>
 <script>
+const WORKER = (window.SIJJ_WORKER || '').replace(/\/$/, '');
+const ON_WORKER = !!WORKER && location.origin === WORKER;
+if (WORKER && !ON_WORKER) location.replace(WORKER + '/admin.html');
 const DEFAULT_REPO = 'soubanq/soundboard';
 const $ = id => document.getElementById(id);
 const list = $('list');
@@ -105,9 +109,11 @@ $('add').onclick = () => {
 // ---- GitHub publishing ----
 const api = async (method, path, body) => {
   const repo = $('repo').value.trim();
-  const res = await fetch(`https://api.github.com/repos/${repo}${path && "/" + path}`, {
+  // On the Worker, the browser's sijj login covers these calls and the Worker adds the GitHub token.
+  const url = ON_WORKER ? `/gh${path && '/' + path}` : `https://api.github.com/repos/${repo}${path && '/' + path}`;
+  const res = await fetch(url, {
     method,
-    headers: { Authorization: `Bearer ${$('token').value.trim()}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    headers: { ...(ON_WORKER ? {} : { Authorization: `Bearer ${$('token').value.trim()}` }), Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
     body: body && JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${(await res.json().catch(() => ({}))).message || ''}`);
@@ -124,7 +130,7 @@ const toBase64 = file => new Promise((resolve, reject) => {
 const safeName = n => n.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+$/g, '') || 'clip';
 
 $('publish').onclick = async () => {
-  if (!$('token').value.trim()) return say('Add a GitHub token first (see the box above).', true);
+  if (!ON_WORKER && !$('token').value.trim()) return say('Add a GitHub token first (see the box above).', true);
   $('publish').disabled = true;
   try {
     const { default_branch: branch } = await api('GET', '');
@@ -167,11 +173,16 @@ $('publish').onclick = async () => {
 
 addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
 
-fetch('clips.json', { cache: 'no-store' }).then(r => r.json()).then(j => {
+// Via the Worker, read the mapping straight from GitHub so it is never stale after a publish.
+const loadMapping = ON_WORKER
+  ? api('GET', 'contents/clips.json').then(f => JSON.parse(decodeURIComponent(escape(atob(f.content.replace(/\n/g, ''))))))
+  : fetch('clips.json', { cache: 'no-store' }).then(r => r.json());
+loadMapping.then(j => {
   slots = j.slots.map(s => ({ ...s, pending: null }));
   original = slots.map(s => s.file).filter(Boolean);
   render();
-}).catch(() => say('Could not load clips.json', true));
+}).catch(err => say('Could not load clips.json: ' + err.message, true));
+if (ON_WORKER) document.querySelector('details.auth').hidden = true;
 </script>
 </body>
 </html>
