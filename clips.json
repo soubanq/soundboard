@@ -1,64 +1,39 @@
 {
   "slots": [
     {
-      "id": 1,
-      "label": "Sijj 1",
-      "file": null
-    },
-    {
-      "id": 2,
-      "label": "Sijj 2",
-      "file": null
-    },
-    {
-      "id": 3,
-      "label": "Sijj 3",
-      "file": null
-    },
-    {
-      "id": 4,
-      "label": "Sijj 4",
-      "file": null
-    },
-    {
-      "id": 5,
-      "label": "Sijj 5",
-      "file": null
-    },
-    {
-      "id": 6,
-      "label": "Sijj 6",
-      "file": null
-    },
-    {
-      "id": 7,
-      "label": "Sijj 7",
-      "file": null
-    },
-    {
-      "id": 8,
-      "label": "Sijj 8",
-      "file": null
-    },
-    {
-      "id": 9,
-      "label": "Sijj 9",
-      "file": null
-    },
-    {
-      "id": 10,
-      "label": "Sijj 10",
-      "file": null
-    },
-    {
-      "id": 11,
-      "label": "Sijj 11",
-      "file": null
-    },
-    {
       "id": 12,
-      "label": "Sijj 12",
-      "file": null
+      "label": "Waow",
+      "file": "clips/12-1790978196164-a4f4150d-cb47-4111-b24c-0a7cbdf81bba.mp4"
+    },
+    {
+      "id": 13,
+      "label": "Do I fuck",
+      "file": "clips/13-1790978597146-712c3b8d-6f4e-4d9a-9907-13e3e396f052.mp4"
+    },
+    {
+      "id": 14,
+      "label": "Rabba na",
+      "file": "clips/14-1790978774409-b12a3bb7-4cae-4718-ab2a-8809df6a500d.mov"
+    },
+    {
+      "id": 15,
+      "label": "The babies",
+      "file": "clips/15-1790978777786-edf4d29a-996b-4e1d-8cd5-70b35a38818e.mov"
+    },
+    {
+      "id": 16,
+      "label": "On the gurda",
+      "file": "clips/16-1790978780036-0cc31c71-ccad-4167-ac7b-8b10dce21315.mov"
+    },
+    {
+      "id": 17,
+      "label": "Wednesday afternoon",
+      "file": "clips/17-1790978862074-ebfb6c34-1649-4084-bff6-d03f7166a9cf.mov"
+    },
+    {
+      "id": 18,
+      "label": "Jack Dempsey",
+      "file": "clips/18-1790978864106-c09a6c59-4392-467c-9b5a-76a11489c080.mp4"
     }
   ]
 }
