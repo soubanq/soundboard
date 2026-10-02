@@ -55,7 +55,7 @@ body {
 .pad {
   position:relative; aspect-ratio:1; border-radius:14px; border:1px solid #000; cursor:pointer; color:#fff;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px 8px;
-  font:inherit; font-weight:700; font-size:.95rem; text-align:center; line-height:1.15; word-break:break-word;
+  font:inherit; font-weight:700; font-size:.95rem; text-align:center; line-height:1.15; overflow-wrap:break-word;
   background:
     radial-gradient(circle at 50% 0%,#ffffff22,transparent 55%),
     linear-gradient(180deg,var(--c1,#4b4e5a),var(--c2,#2a2c33));
@@ -84,7 +84,7 @@ body {
 .row .danger { background:linear-gradient(180deg,#d6453b,#8f1f18); }
 .toolbar { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
 .note { color:var(--muted); font-size:.8rem; margin:0 0 4px; flex:1; }
-@media (max-width:520px){ .row{grid-template-columns:36px 1fr} .row .actions{grid-column:1/-1;justify-content:flex-start} .grid{grid-template-columns:repeat(3,1fr);gap:10px} .pad{font-size:.75rem} }
+@media (max-width:520px){ .row{grid-template-columns:36px 1fr} .row .actions{grid-column:1/-1;justify-content:flex-start} .grid{grid-template-columns:repeat(3,1fr);gap:10px} .pad{font-size:.7rem} }
 .auth { margin-bottom:14px; background:#16171c; border:1px solid #000; border-radius:10px; padding:10px 12px; }
 .auth summary { cursor:pointer; font-size:.75rem; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
 .auth input { width:100%; margin:6px 0; padding:9px; border-radius:6px; border:1px solid #000; background:#0c0d10; color:var(--text); font:inherit; }
