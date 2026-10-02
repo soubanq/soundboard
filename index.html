@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sijj Soundboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🔊 Sijj Soundboard</h1>
+  <nav><button class="ghost" id="stop">⏹ Stop all</button> <a href="admin.html">⚙ Edit buttons</a></nav>
+</header>
+<main>
+  <div id="grid" class="grid"></div>
+</main>
+<script src="store.js"></script>
+<script>
+const grid = document.getElementById('grid');
+const playing = new Set();
+
+(async () => {
+  const slots = await getSlots();
+  if (!slots.some(s => s.blob)) {
+    grid.outerHTML = '<p class="empty">No clips yet. Head to <a href="admin.html">Edit buttons</a> to upload some.</p>';
+    return;
+  }
+  for (const slot of slots) {
+    const b = document.createElement('button');
+    b.className = 'pad';
+    b.textContent = slot.label;
+    if (!slot.blob) b.disabled = true;
+    else {
+      const url = URL.createObjectURL(slot.blob);
+      b.onclick = () => {
+        const a = new Audio(url);
+        playing.add(a);
+        b.classList.add('playing');
+        a.onended = a.onerror = () => { playing.delete(a); b.classList.remove('playing'); };
+        a.play().catch(() => b.classList.remove('playing'));
+      };
+    }
+    grid.append(b);
+  }
+})();
+
+document.getElementById('stop').onclick = () => {
+  playing.forEach(a => { a.pause(); a.onended(); });
+};
+</script>
+</body>
+</html>

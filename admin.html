@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edit Sijj Soundboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>⚙ Edit buttons</h1>
+  <nav><a href="index.html">← Soundboard</a></nav>
+</header>
+<main>
+  <p class="note">Clips are saved in this browser (on this device), so upload them on the device you'll play from.</p>
+  <div class="toolbar"><button id="add">＋ Add button</button></div>
+  <div id="list"></div>
+</main>
+<script src="store.js"></script>
+<script>
+const list = document.getElementById('list');
+let slots = [];
+let previewing = null;
+
+function render() {
+  list.innerHTML = '';
+  for (const slot of slots) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="num">${slot.id}</div>
+      <div><input type="text" value="" maxlength="30" placeholder="Button label">
+        <div class="file"></div></div>
+      <div class="actions">
+        <label class="btn">Upload<input type="file" accept="audio/*" hidden></label>
+        <button class="play">▶</button>
+        <button class="clear">Clear</button>
+        <button class="danger del">Delete</button>
+      </div>`;
+    const input = row.querySelector('input[type=text]');
+    input.value = slot.label;
+    row.querySelector('.file').textContent = slot.blob ? `🎵 ${slot.name}` : 'No clip assigned';
+    input.onchange = () => { slot.label = input.value.trim() || `Sijj ${slot.id}`; saveSlot(slot); };
+    row.querySelector('input[type=file]').onchange = async e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      slot.blob = f; slot.name = f.name;
+      await saveSlot(slot);
+      render();
+    };
+    row.querySelector('.play').onclick = () => {
+      if (!slot.blob) return;
+      previewing?.pause();
+      previewing = new Audio(URL.createObjectURL(slot.blob));
+      previewing.play();
+    };
+    row.querySelector('.clear').onclick = async () => { slot.blob = null; slot.name = ''; await saveSlot(slot); render(); };
+    row.querySelector('.del').onclick = async () => {
+      if (!confirm(`Delete button ${slot.id}?`)) return;
+      await deleteSlot(slot.id);
+      slots = slots.filter(s => s !== slot);
+      render();
+    };
+    list.append(row);
+  }
+}
+
+document.getElementById('add').onclick = async () => {
+  const id = Math.max(0, ...slots.map(s => s.id)) + 1;
+  const slot = { id, label: `Sijj ${id}`, name: '', blob: null };
+  await saveSlot(slot);
+  slots.push(slot);
+  render();
+};
+
+getSlots().then(s => { slots = s; render(); });
+</script>
+</body>
+</html>
