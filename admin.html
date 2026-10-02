@@ -15,17 +15,44 @@
   </div>
   <div class="well">
     <div class="toolbar">
-      <p class="note">Clips are saved in this browser, so upload them on the device you'll play from.</p>
+      <p class="note">Changes go live for everyone once published (saved to the GitHub repo).</p>
       <button class="btn-hw" id="add">＋ Add pad</button>
+      <button class="btn-hw stop" id="publish" disabled>⬆ Publish</button>
     </div>
+    <div id="status" class="note" style="margin-bottom:12px"></div>
+    <details class="auth"><summary>GitHub access (needed to publish)</summary>
+      <p class="note">Create a fine-grained token at github.com/settings/personal-access-tokens with access to this repo only and <b>Contents: read &amp; write</b>. It's stored only in this browser. Without it, nobody can change the board.</p>
+      <input type="text" id="repo" placeholder="owner/repo">
+      <input type="password" id="token" placeholder="github_pat_…" autocomplete="off">
+      <button class="btn-hw" id="save-auth">Save</button>
+    </details>
     <div id="list"></div>
   </div>
 </div>
-<script src="store.js"></script>
 <script>
-const list = document.getElementById('list');
-let slots = [];
+const DEFAULT_REPO = 'soubanq/soundboard';
+const $ = id => document.getElementById(id);
+const list = $('list');
+const status = $('status');
+let slots = [];          // working copy: { id, label, file, pending: File|null }
+let original = [];       // files currently in the repo
 let previewing = null;
+let dirty = false;
+
+const ls = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+};
+$('token').value = ls.get('sijj-token') || '';
+$('repo').value = ls.get('sijj-repo') || DEFAULT_REPO;
+$('save-auth').onclick = () => {
+  ls.set('sijj-token', $('token').value.trim());
+  ls.set('sijj-repo', $('repo').value.trim());
+  say('Saved on this device.');
+};
+
+function say(msg, bad) { status.textContent = msg; status.style.color = bad ? '#ff6a5f' : 'var(--green)'; }
+function markDirty() { dirty = true; $('publish').disabled = false; say('Unpublished changes — hit Publish.'); }
 
 function render() {
   list.innerHTML = '';
@@ -34,7 +61,7 @@ function render() {
     row.className = 'row';
     row.innerHTML = `
       <div class="num">${slot.id}</div>
-      <div><input type="text" value="" maxlength="30" placeholder="Button label">
+      <div><input type="text" maxlength="30" placeholder="Button label">
         <div class="file"></div></div>
       <div class="actions">
         <label class="btn-hw">Upload<input type="file" accept="audio/*" hidden></label>
@@ -44,41 +71,107 @@ function render() {
       </div>`;
     const input = row.querySelector('input[type=text]');
     input.value = slot.label;
-    row.querySelector('.file').textContent = slot.blob ? `🎵 ${slot.name}` : 'No clip assigned';
-    input.onchange = () => { slot.label = input.value.trim() || `Sijj ${slot.id}`; saveSlot(slot); };
-    row.querySelector('input[type=file]').onchange = async e => {
+    row.querySelector('.file').textContent = slot.pending ? `🆕 ${slot.pending.name}` : slot.file ? `🎵 ${slot.file.split('/').pop()}` : 'No clip assigned';
+    input.onchange = () => { slot.label = input.value.trim() || `Sijj ${slot.id}`; markDirty(); };
+    row.querySelector('input[type=file]').onchange = e => {
       const f = e.target.files[0];
       if (!f) return;
-      slot.blob = f; slot.name = f.name;
-      await saveSlot(slot);
-      render();
+      slot.pending = f;
+      markDirty(); render();
     };
     row.querySelector('.play').onclick = () => {
-      if (!slot.blob) return;
+      const src = slot.pending ? URL.createObjectURL(slot.pending) : slot.file;
+      if (!src) return;
       previewing?.pause();
-      previewing = new Audio(URL.createObjectURL(slot.blob));
+      previewing = new Audio(src);
       previewing.play();
     };
-    row.querySelector('.clear').onclick = async () => { slot.blob = null; slot.name = ''; await saveSlot(slot); render(); };
-    row.querySelector('.del').onclick = async () => {
-      if (!confirm(`Delete button ${slot.id}?`)) return;
-      await deleteSlot(slot.id);
+    row.querySelector('.clear').onclick = () => { slot.pending = null; slot.file = null; markDirty(); render(); };
+    row.querySelector('.del').onclick = () => {
+      if (!confirm(`Delete pad ${slot.id}?`)) return;
       slots = slots.filter(s => s !== slot);
-      render();
+      markDirty(); render();
     };
     list.append(row);
   }
 }
 
-document.getElementById('add').onclick = async () => {
+$('add').onclick = () => {
   const id = Math.max(0, ...slots.map(s => s.id)) + 1;
-  const slot = { id, label: `Sijj ${id}`, name: '', blob: null };
-  await saveSlot(slot);
-  slots.push(slot);
-  render();
+  slots.push({ id, label: `Sijj ${id}`, file: null, pending: null });
+  markDirty(); render();
 };
 
-getSlots().then(s => { slots = s; render(); });
+// ---- GitHub publishing ----
+const api = async (method, path, body) => {
+  const repo = $('repo').value.trim();
+  const res = await fetch(`https://api.github.com/repos/${repo}${path && "/" + path}`, {
+    method,
+    headers: { Authorization: `Bearer ${$('token').value.trim()}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: body && JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${(await res.json().catch(() => ({}))).message || ''}`);
+  return res.json();
+};
+
+const toBase64 = file => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result.split(',')[1]);
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
+const safeName = n => n.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+$/g, '') || 'clip';
+
+$('publish').onclick = async () => {
+  if (!$('token').value.trim()) return say('Add a GitHub token first (see the box above).', true);
+  $('publish').disabled = true;
+  try {
+    const { default_branch: branch } = await api('GET', '');
+    const ref = `?ref=${encodeURIComponent(branch)}`;
+
+    for (const slot of slots) {
+      if (!slot.pending) continue;
+      say(`Uploading ${slot.pending.name}…`);
+      const path = `clips/${slot.id}-${Date.now()}-${safeName(slot.pending.name)}`;
+      await api('PUT', `contents/${path}`, { message: `Add clip for pad ${slot.id}`, content: await toBase64(slot.pending), branch });
+      slot.file = path;
+      slot.pending = null;
+    }
+
+    const keep = new Set(slots.map(s => s.file).filter(Boolean));
+    for (const file of original.filter(f => !keep.has(f))) {
+      say(`Removing ${file}…`);
+      const { sha } = await api('GET', `contents/${file}${ref}`).catch(() => ({}));
+      if (sha) await api('DELETE', `contents/${file}`, { message: `Remove ${file}`, sha, branch });
+    }
+
+    say('Saving mapping…');
+    const current = await api('GET', `contents/clips.json${ref}`);
+    const json = JSON.stringify({ slots: slots.map(({ id, label, file }) => ({ id, label, file })) }, null, 2) + '\n';
+    await api('PUT', 'contents/clips.json', {
+      message: 'Update soundboard mapping',
+      content: btoa(unescape(encodeURIComponent(json))),
+      sha: current.sha, branch,
+    });
+
+    original = [...keep];
+    dirty = false;
+    render();
+    say('Published! The site redeploys in about a minute, then everyone sees the change.');
+  } catch (err) {
+    say(err.message, true);
+    $('publish').disabled = false;
+  }
+};
+
+addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
+
+fetch('clips.json', { cache: 'no-store' }).then(r => r.json()).then(j => {
+  slots = j.slots.map(s => ({ ...s, pending: null }));
+  original = slots.map(s => s.file).filter(Boolean);
+  render();
+}).catch(() => say('Could not load clips.json', true));
 </script>
 </body>
 </html>

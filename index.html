@@ -19,7 +19,6 @@
   </div>
   <div class="well"><div id="grid" class="grid"></div></div>
 </div>
-<script src="store.js"></script>
 <script>
 const grid = document.getElementById('grid');
 const nowEl = document.getElementById('now');
@@ -42,8 +41,8 @@ function refreshDisplay(label) {
 }
 
 (async () => {
-  const slots = await getSlots();
-  if (!slots.some(s => s.blob)) {
+  const slots = await fetch('clips.json', { cache: 'no-store' }).then(r => r.json()).then(j => j.slots).catch(() => []);
+  if (!slots.some(s => s.file)) {
     grid.outerHTML = '<p class="empty">NO CLIPS LOADED — head to <a href="admin.html">MAP</a> to upload some.</p>';
     return;
   }
@@ -53,9 +52,10 @@ function refreshDisplay(label) {
     b.innerHTML = '<span class="key"></span><span class="led"></span><span class="lbl"></span>';
     b.querySelector('.key').textContent = (KEYS[i] || '').toUpperCase();
     b.querySelector('.lbl').textContent = slot.label;
-    if (!slot.blob) { b.disabled = true; }
+    if (!slot.file) { b.disabled = true; }
     else {
-      const url = URL.createObjectURL(slot.blob);
+      const url = slot.file;
+      new Audio(url).preload = 'auto';
       b.onclick = () => {
         const a = new Audio(url);
         playing.add(a);
