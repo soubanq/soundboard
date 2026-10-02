@@ -7,45 +7,85 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1>🔊 Sijj Soundboard</h1>
-  <nav><button class="ghost" id="stop">⏹ Stop all</button> <a href="admin.html">⚙ Edit buttons</a></nav>
-</header>
-<main>
-  <div id="grid" class="grid"></div>
-</main>
+<div class="deck">
+  <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+  <div class="top">
+    <div class="brand"><h1>Sijj Soundboard</h1><small>Pro Series · Maximum Sijj</small></div>
+    <div class="display"><div class="now" id="now">READY</div><div class="meter" id="meter"></div></div>
+    <div class="ctrl">
+      <button class="btn-hw stop" id="stop">■ Stop</button>
+      <a class="btn-hw" href="admin.html">⚙ Map</a>
+    </div>
+  </div>
+  <div class="well"><div id="grid" class="grid"></div></div>
+</div>
 <script src="store.js"></script>
 <script>
 const grid = document.getElementById('grid');
+const nowEl = document.getElementById('now');
+const meter = document.getElementById('meter');
 const playing = new Set();
+const KEYS = '1234567890qwertyuiopasdfghjkl'.split('');
+
+for (let i = 0; i < 16; i++) meter.append(document.createElement('i'));
+const bars = [...meter.children];
+setInterval(() => {
+  const n = playing.size;
+  const level = n ? Math.min(16, Math.round(5 + Math.random() * 8 + n * 2)) : 0;
+  bars.forEach((b, i) => {
+    b.className = i < level ? 'on' + (i > 12 ? ' hot' : i > 9 ? ' warn' : '') : '';
+  });
+}, 70);
+
+function refreshDisplay(label) {
+  nowEl.textContent = playing.size ? '▶ ' + label.toUpperCase() : 'READY';
+}
 
 (async () => {
   const slots = await getSlots();
   if (!slots.some(s => s.blob)) {
-    grid.outerHTML = '<p class="empty">No clips yet. Head to <a href="admin.html">Edit buttons</a> to upload some.</p>';
+    grid.outerHTML = '<p class="empty">NO CLIPS LOADED — head to <a href="admin.html">MAP</a> to upload some.</p>';
     return;
   }
-  for (const slot of slots) {
+  slots.forEach((slot, i) => {
     const b = document.createElement('button');
-    b.className = 'pad';
-    b.textContent = slot.label;
-    if (!slot.blob) b.disabled = true;
+    b.className = 'pad c' + (i % 7);
+    b.innerHTML = '<span class="key"></span><span class="led"></span><span class="lbl"></span>';
+    b.querySelector('.key').textContent = (KEYS[i] || '').toUpperCase();
+    b.querySelector('.lbl').textContent = slot.label;
+    if (!slot.blob) { b.disabled = true; }
     else {
       const url = URL.createObjectURL(slot.blob);
       b.onclick = () => {
         const a = new Audio(url);
         playing.add(a);
         b.classList.add('playing');
-        a.onended = a.onerror = () => { playing.delete(a); b.classList.remove('playing'); };
-        a.play().catch(() => b.classList.remove('playing'));
+        refreshDisplay(slot.label);
+        const done = () => {
+          playing.delete(a);
+          if (![...playing].some(x => x._pad === b)) b.classList.remove('playing');
+          refreshDisplay(slot.label);
+        };
+        a._pad = b; a._done = done;
+        a.onended = a.onerror = done;
+        a.play().catch(done);
       };
+      b._trigger = b.onclick;
     }
     grid.append(b);
-  }
+    if (KEYS[i]) keymap[KEYS[i]] = b;
+  });
 })();
 
+const keymap = {};
+addEventListener('keydown', e => {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  const b = keymap[e.key.toLowerCase()];
+  if (b && !b.disabled) b.onclick();
+});
+
 document.getElementById('stop').onclick = () => {
-  playing.forEach(a => { a.pause(); a.onended(); });
+  [...playing].forEach(a => { a.pause(); a._done(); });
 };
 </script>
 </body>
