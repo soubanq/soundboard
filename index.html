@@ -23,22 +23,93 @@
 const grid = document.getElementById('grid');
 const nowEl = document.getElementById('now');
 const meter = document.getElementById('meter');
-const playing = new Set();
 const KEYS = '1234567890qwertyuiopasdfghjkl'.split('');
 
 for (let i = 0; i < 16; i++) meter.append(document.createElement('i'));
 const bars = [...meter.children];
 setInterval(() => {
-  const n = playing.size;
+  const n = tracks.size;
   const level = n ? Math.min(16, Math.round(5 + Math.random() * 8 + n * 2)) : 0;
   bars.forEach((b, i) => {
     b.className = i < level ? 'on' + (i > 12 ? ' hot' : i > 9 ? ' warn' : '') : '';
   });
 }, 70);
 
-function refreshDisplay(label) {
-  nowEl.textContent = playing.size ? '▶ ' + label.toUpperCase() : 'READY';
+// Playback: decode each clip once into memory (Web Audio) and fire cheap buffer sources on each press.
+// Creating a new <audio> element per press (the old approach) re-downloaded the clip's video track and
+// leaked media elements, which makes browsers - phones especially - silently stop playing until refresh.
+const AC = window.AudioContext || window.webkitAudioContext;
+const ctx = AC ? new AC() : null;
+const decoded = new Map();      // url -> Promise<AudioBuffer | null>
+const fallbackEls = new Map();  // url -> single reusable <audio> for clips the browser can't decode
+
+function loadBuffer(url) {
+  if (!ctx) return Promise.resolve(null);
+  if (!decoded.has(url)) {
+    decoded.set(url, fetch(url)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(data => new Promise((resolve, reject) => ctx.decodeAudioData(data, resolve, reject)))
+      .catch(() => null));
+  }
+  return decoded.get(url);
 }
+
+async function preloadAll(urls, concurrency = 3) {
+  const queue = [...urls];
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (queue.length) await loadBuffer(queue.shift());
+  }));
+}
+
+const unlock = () => { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); };
+['pointerdown', 'touchstart', 'keydown'].forEach(ev => addEventListener(ev, unlock, { passive: true }));
+
+const tracks = new Set();   // currently sounding: { pad, label, stop() }
+
+function refreshDisplay() {
+  const last = [...tracks].pop();
+  nowEl.textContent = last ? '▶ ' + last.label.toUpperCase() : 'READY';
+}
+
+function startTrack(pad, label, stop) {
+  const track = { pad, label, stop, ended: false };
+  track.finish = () => {
+    if (track.ended) return;
+    track.ended = true;
+    tracks.delete(track);
+    if (![...tracks].some(t => t.pad === pad)) pad.classList.remove('playing');
+    refreshDisplay();
+  };
+  tracks.add(track);
+  pad.classList.add('playing');
+  refreshDisplay();
+  return track;
+}
+
+async function trigger(pad, slot) {
+  unlock();
+  const buffer = await loadBuffer(slot.file);
+  if (buffer) {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    const track = startTrack(pad, slot.label, () => { try { src.stop(); } catch {} track.finish(); });
+    src.onended = track.finish;
+    src.start();
+    return;
+  }
+  // Fallback: reuse one element per clip instead of creating a new one each press.
+  let el = fallbackEls.get(slot.file);
+  if (!el) { el = new Audio(slot.file); el.preload = 'auto'; fallbackEls.set(slot.file, el); }
+  [...tracks].filter(t => t.el === el).forEach(t => t.finish());
+  el.currentTime = 0;
+  const track = startTrack(pad, slot.label, () => { el.pause(); track.finish(); });
+  track.el = el;
+  el.onended = el.onerror = track.finish;
+  el.play().catch(track.finish);
+}
+
+const keymap = {};
 
 (async () => {
   const slots = await fetch('clips.json', { cache: 'no-store' }).then(r => r.json()).then(j => j.slots).catch(() => []);
@@ -52,41 +123,21 @@ function refreshDisplay(label) {
     b.innerHTML = '<span class="key"></span><span class="led"></span><span class="lbl"></span>';
     b.querySelector('.key').textContent = (KEYS[i] || '').toUpperCase();
     b.querySelector('.lbl').textContent = slot.label;
-    if (!slot.file) { b.disabled = true; }
-    else {
-      const url = slot.file;
-      new Audio(url).preload = 'auto';
-      b.onclick = () => {
-        const a = new Audio(url);
-        playing.add(a);
-        b.classList.add('playing');
-        refreshDisplay(slot.label);
-        const done = () => {
-          playing.delete(a);
-          if (![...playing].some(x => x._pad === b)) b.classList.remove('playing');
-          refreshDisplay(slot.label);
-        };
-        a._pad = b; a._done = done;
-        a.onended = a.onerror = done;
-        a.play().catch(done);
-      };
-      b._trigger = b.onclick;
-    }
+    if (!slot.file) b.disabled = true;
+    else b.onclick = () => trigger(b, slot);
     grid.append(b);
     if (KEYS[i]) keymap[KEYS[i]] = b;
   });
+  preloadAll([...new Set(slots.map(s => s.file).filter(Boolean))]);
 })();
 
-const keymap = {};
 addEventListener('keydown', e => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
   const b = keymap[e.key.toLowerCase()];
   if (b && !b.disabled) b.onclick();
 });
 
-document.getElementById('stop').onclick = () => {
-  [...playing].forEach(a => { a.pause(); a._done(); });
-};
+document.getElementById('stop').onclick = () => [...tracks].forEach(t => t.stop());
 </script>
 </body>
 </html>
