@@ -12,12 +12,15 @@
   const sha256 = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))]
     .map(b => b.toString(16).padStart(2, '0')).join('');
 
+  const realTitle = document.title;
+  document.title = 'Enter passkey';
+
   addEventListener('DOMContentLoaded', () => {
     const gate = document.createElement('div');
     gate.id = 'gate';
     gate.innerHTML = `
       <form class="gate-box" autocomplete="off">
-        <div class="gate-title">SIJJ SOUNDBOARD</div>
+        <div class="gate-title">RESTRICTED ACCESS</div>
         <div class="gate-sub">ENTER PASSKEY</div>
         <input type="password" id="gate-input" placeholder="••••••••" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
         <button class="btn-hw" type="submit">Unlock</button>
@@ -31,6 +34,7 @@
       if (await sha256(input.value.trim().toLowerCase()) === HASH) {
         remember();
         document.documentElement.classList.remove('locked');
+        document.title = realTitle;
         gate.remove();
       } else {
         gate.querySelector('#gate-err').textContent = 'WRONG PASSKEY';
